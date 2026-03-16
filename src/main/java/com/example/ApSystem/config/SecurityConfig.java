@@ -1,7 +1,6 @@
 package com.example.ApSystem.config;
 
 import com.example.ApSystem.security.JwtAuthenticationFilter;
-import com.example.ApSystem.security.JwtUtils;
 import com.example.ApSystem.security.UserDetailsServiceImpl;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,7 +14,6 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -27,16 +25,11 @@ import java.util.List;
 public class SecurityConfig {
 
     private final UserDetailsServiceImpl userDetailsService;
-    private final JwtUtils jwtUtils;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    public SecurityConfig(UserDetailsServiceImpl userDetailsService, JwtUtils jwtUtils) {
+    public SecurityConfig(UserDetailsServiceImpl userDetailsService, JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.userDetailsService = userDetailsService;
-        this.jwtUtils = jwtUtils;
-    }
-
-    @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
     @Bean
@@ -54,65 +47,27 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-
-        JwtAuthenticationFilter jwtFilter =
-                new JwtAuthenticationFilter(jwtUtils, userDetailsService);
-
         http
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
-
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
-
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-
-                        // 🔓 Endpoints públicos
-                        .requestMatchers(
-                                "/api/auth/**",
-                                "/h2-console/**",
-                                "/api/ids/**",
-                                "/api/cctv/**",
-                                "/api/maintenance/**",
-                                "/api/maintenance_rms_vss/**",
-                                "/api/reports/word/**",
-                                "/api/v1/sacs/**",
-                                "/api/dashboard/**",
-                                "/ws/**"
-                        ).permitAll()
-
-                        // 🔐 Todu lo demás requiere autenticación
-                        .anyRequest().authenticated()
-                )
-
-                .authenticationProvider(authenticationProvider());
-
-        http.headers(headers ->
-                headers.frameOptions(frame -> frame.disable())
-        );
-
-        http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                        .anyRequest().permitAll() // Todo abierto
+                );
 
         return http.build();
     }
 
-
-    // CONFIGURACIÓN CORS REAL
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-
-        config.setAllowedOrigins(List.of("http://localhost:5173"));
+        config.setAllowedOriginPatterns(List.of("http://localhost:5173"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedHeaders(List.of("*")); // Permitir todos los headers en desarrollo
         config.setAllowCredentials(true);
-
         config.setExposedHeaders(List.of("Content-Disposition"));
 
-        UrlBasedCorsConfigurationSource source =
-                new UrlBasedCorsConfigurationSource();
-
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
     }

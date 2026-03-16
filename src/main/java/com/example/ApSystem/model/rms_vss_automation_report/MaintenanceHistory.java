@@ -12,7 +12,8 @@ import java.time.LocalDateTime;
         * Este historial es independiente del Excel original donde están
  * los datos del dispositivo y sirve para generar el reporte mensual.
  */
-@Entity
+
+
 @Table(name = "maintenance_history")
 public class MaintenanceHistory {
 
