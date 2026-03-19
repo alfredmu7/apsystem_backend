@@ -20,43 +20,62 @@ public class CctvMaintenanceService {
     private CctvRepository inventoryRepo;
 
     @Autowired
-    private Cctv_WordReportGeneratorService reportService; // Servicio de automatización de Word
+    private Cctv_WordReportGeneratorService reportService;
+
+    @Autowired
+    private Cctv_ExcelReportGeneratorService excelService;
 
     /**
      * Ejecuta el proceso de mantenimiento:
-     * 1. Valida duplicados en la base de datos (Neon).
-     * 2. Registra el mantenimiento en el historial.
-     * 3. Automatiza la inserción en el reporte Word correspondiente (Otro Sí 7, 20, Servidores o Cisa).
+     * 1. Valida duplicados.
+     * 2. Registra el mantenimiento con Ubicación y Fase (para filtrado en React).
+     * 3. Automatiza reportes Word y Excel.
      */
     @Transactional
     public CctvMaintenanceRecord ejecutarMantenimiento(String id, String obs, String tecnico) {
 
-        // 1. VALIDACIÓN ANTI-DUPLICADOS (REQUISITO FUNDAMENTAL)
-        // Evita que un técnico agregue dos veces el mismo ID al informe del mes.
+        // 1. VALIDACIÓN ANTI-DUPLICADOS
         if (maintenanceRepo.existsByDispositivoId(id)) {
             throw new RuntimeException("El ID " + id + " ya está incluido en el informe actual.");
         }
 
-        // 2. Obtener datos de la cámara desde el inventario (Neon)
-        // Necesitamos la ubicación y la observación/proyecto para discriminar el reporte.
+        // 2. OBTENER DATOS DEL INVENTARIO (Neon DB - Tabla sql_cctv)
         CctvModel camera = inventoryRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Cámara no encontrada: " + id));
 
-        // 3. Crear el registro de historial en la base de datos
+        // --- EXTRAER DATOS DEL INVENTARIO ---
+        String ubicacionInv = (camera.getUbicacion() != null) ? camera.getUbicacion() : "N/A";
+        String faseOriginal = (camera.getFase() != null) ? camera.getFase() : "";
+        String observacionMaestra = (camera.getObservacion() != null) ? camera.getObservacion() : "";
+        String observacionDb = (camera.getObservacion() != null) ? camera.getObservacion() : "";
+
+        // 3. CREAR REGISTRO DE HISTORIAL (Persistiendo datos procesados para el Frontend)
         CctvMaintenanceRecord record = new CctvMaintenanceRecord();
         record.setDispositivoId(id);
-        record.setObservaciones(obs);
+        record.setUbicacion(ubicacionInv);
+
+        // --- LÓGICA DE INTEGRACIÓN DE FASE ---
+        // Si la columna 'observacion' de Neon dice OTRO SI 20, esa es su fase real de reporte
+        if (observacionMaestra.toUpperCase().contains("OTRO SI 20") ||
+                observacionMaestra.toUpperCase().contains("OS20")) {
+            record.setFase("OTRO SI 20");
+        } else {
+            record.setFase(faseOriginal);
+        }
+
+        record.setObservacion(observacionDb);
         record.setTecnico(tecnico);
-        // La fecha se asigna automáticamente si tienes @PrePersist o por defecto en DB
+
+        // Guardamos en la base de datos registros_mantenimiento_cctv
         CctvMaintenanceRecord savedRecord = maintenanceRepo.save(record);
 
-        // 4. AUTOMATIZACIÓN DEL REPORTE WORD
-        // 'infoClave' se extrae de la cámara encontrada para decidir el destino (Word).
-        // Se envía camera.getObservacion() que es donde residen los tags: "SERVIDORES", "OTROSI 20", "EXTERIOR-CISA", etc.
-        String infoClave = camera.getObservacion();
+        // 4. AUTOMATIZACIÓN DE INFORMES
+        // Usamos la observación maestra para que el WordGenerator sepa a qué documento enviarlo
+        String infoClaveTotal = record.getFase() + " " + observacionMaestra;
+        reportService.agregarFilaAlInforme(savedRecord, ubicacionInv, infoClaveTotal);
 
-        // Llamada al servicio que inyecta la fila en la tabla del Word
-        reportService.agregarFilaAlInforme(savedRecord, camera.getUbicacion(), infoClave);
+        // Reporte Excel RMS VSS
+        excelService.agregarRegistroAExcel(savedRecord, record.getFase(), ubicacionInv);
 
         return savedRecord;
     }

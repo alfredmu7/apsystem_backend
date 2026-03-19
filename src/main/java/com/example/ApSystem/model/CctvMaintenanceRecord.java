@@ -11,21 +11,23 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 public class CctvMaintenanceRecord {
-    // En CctvMaintenanceRecord.java
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id; // Cambia Long por Integer
+    private Integer id;
 
     @Column(name = "fecha_mantenimiento", updatable = false)
     private LocalDateTime fechaMantenimiento = LocalDateTime.now();
 
     @Column(name = "dispositivo_id", nullable = false)
     private String dispositivoId;
+    private String fase;
+
+
+    private String ubicacion;
 
     private String tecnico;
 
-    @Column(nullable = false)
-    private String observaciones;
+    private String observacion;
 
     private String estado = "Completado";
 }
