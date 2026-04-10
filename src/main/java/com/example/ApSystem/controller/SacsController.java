@@ -12,41 +12,39 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/sacs")
-@CrossOrigin(origins = "*") // Permite que React se comunique con Spring
+@CrossOrigin(origins = "*")
 public class SacsController {
 
     @Autowired
     private SacsService sacsService;
 
     // --- 1. BUSCADOR (Inventario) ---
-    // Este ya lo tienes, permite buscar la puerta para ver sus detalles técnicos
     @GetMapping("/search/{idPuerta}")
     public ResponseEntity<List<SacsModel>> buscarPorPuerta(@PathVariable String idPuerta) {
         List<SacsModel> resultados = sacsService.buscarPorIdPuerta(idPuerta);
         return ResponseEntity.ok(resultados);
     }
 
-    // --- 2. EJECUCIÓN (Nueva Tabla de Mantenimiento en Neon) ---
-    // Este recibe el POST de tu función applySacsMaintenance de la API
+    // --- 2. EJECUCIÓN (Sincronizado con el JS y el Model) ---
     @PostMapping("/maintenance/execute")
-    public ResponseEntity<?> registrarMantenimiento(@RequestBody Map<String, String> body) {
-        String id = body.get("id");
-        String obs = body.get("observation");
-        String tech = body.get("technician");
+    public ResponseEntity<?> registrarMantenimiento(@RequestBody Map<String, Object> body) {
+        String id = String.valueOf(body.get("id"));
+        String obs = String.valueOf(body.get("observation"));
+        String tech = String.valueOf(body.get("technician"));
+        String item = String.valueOf(body.get("item")); // <--- Nuevo
+        String ubicacion = String.valueOf(body.get("ubicacion")); // <--- Nuevo
+        String tipo = String.valueOf(body.get("tipo")); // <--- Nuevo
 
-        // El servicio debe encargarse de insertar en la tabla registros_mantenimiento_sacs
-        return ResponseEntity.ok(sacsService.registrarMantenimiento(id, obs, tech));
+        return ResponseEntity.ok(sacsService.registrarMantenimiento(id, obs, tech, item, ubicacion, tipo));
     }
 
-    // --- 3. HISTORIAL (Pestaña Device) ---
-    // Este alimenta la función getSacsMaintenanceHistory de tu API
+    // --- 3. HISTORIAL ---
     @GetMapping("/maintenance/history")
     public ResponseEntity<List<SacsMaintenanceRecord>> verHistorial() {
-        // Devuelve la lista de mantenimientos realizados, no el inventario de puertas
         return ResponseEntity.ok(sacsService.obtenerHistorialCompleto());
     }
 
-    // --- 4. LISTADO GENERAL (Inventario) ---
+    // --- 4. LISTADO GENERAL ---
     @GetMapping
     public ResponseEntity<List<SacsModel>> listarPuertas() {
         return ResponseEntity.ok(sacsService.listarTodo());

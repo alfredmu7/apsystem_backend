@@ -34,11 +34,14 @@ public class SacsService {
     /**
      * Registra un nuevo mantenimiento en la tabla de Neon.
      */
-    public SacsMaintenanceRecord registrarMantenimiento(String id, String obs, String tech) {
+    public SacsMaintenanceRecord registrarMantenimiento(String id, String obs, String tech, String item, String ubicacion, String tipo) {
         SacsMaintenanceRecord record = new SacsMaintenanceRecord();
         record.setDispositivoId(id);
         record.setObservaciones(obs);
         record.setTecnico(tech);
+        record.setItem(item); // <--- Nuevo
+        record.setUbicacion(ubicacion); // <--- Nuevo
+        record.setTipoDeEquipo(tipo); // <--- Nuevo
         record.setFechaMantenimiento(LocalDateTime.now());
         record.setEstado("COMPLETADO");
         return maintenanceRepository.save(record);
